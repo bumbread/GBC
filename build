@@ -1,0 +1,6 @@
+#!/bin/bash
+
+disabled="-Wno-unused-function -Wno-multichar -Wno-unused-parameter"
+gcc -g -Wall -Wextra $disabled ./assembler/main.c -o./gbasm
+
+
