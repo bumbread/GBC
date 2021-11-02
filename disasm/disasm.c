@@ -154,7 +154,7 @@ static void disassemble(void)
           case 1: {
             if((hi3&1) == 0) {
               WORD(d16);
-              fprintf(out, "\tLD %s, %04x", mrrtostr(hi2), d16);
+              fprintf(out, "\tLD %s, %04x", rrtostr(hi2), d16);
             }
             else {
               fprintf(out, "\tADD HL, %s", rrtostr(hi2));
