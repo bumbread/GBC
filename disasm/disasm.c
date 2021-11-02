@@ -107,9 +107,9 @@ static void disasm_prefix_cb(void)
 
   return;
   misencoded: {
-    fprintf(out, "\t<BYTE> %02x", 0xCB);
+    fprintf(out, "\tDB $%02x", 0xCB);
     for(int i = 0; i != dp; ++i) {
-      fprintf(out, "\t<BYTE> %02x", decoded[i]);
+      fprintf(out, "\tDB $%02x", decoded[i]);
     }
   } 
 }
@@ -126,7 +126,7 @@ static void disassemble(void)
     if(byte == EOF) break;
     if(addr >= max_size) break;
     addr++;
-  
+
     fprintf(out, "%04x\t", instruc_addr);
     fprintf(out, "%02x", byte);
     
@@ -141,20 +141,20 @@ static void disassemble(void)
           case 0: {
             switch(hi3) {
               case 0: { fprintf(out, "\tNOP");} break;
-              case 1: { WORD(a16); fprintf(out, "\tLD (%04x), SP", a16); } break;
+              case 1: { WORD(a16); fprintf(out, "\tLD ($%04x), SP", a16); } break;
               case 2: { fprintf(out, "\tSTOP 0");} break;
-              case 3: { BYTE(r8); fprintf(out, "\tJR %02x", r8);} break;
-              case 4: { BYTE(r8); fprintf(out, "\tJR NZ, %02x", r8); } break;
-              case 5: { BYTE(r8); fprintf(out, "\tJR Z, %02x", r8); } break; 
-              case 6: { BYTE(r8); fprintf(out, "\tJR NC, %02x", r8); } break; 
-              case 7: { BYTE(r8); fprintf(out, "\tJR C, %02x", r8); } break; 
+              case 3: { BYTE(r8); fprintf(out, "\tJR $%02x", r8);} break;
+              case 4: { BYTE(r8); fprintf(out, "\tJR NZ, $%02x", r8); } break;
+              case 5: { BYTE(r8); fprintf(out, "\tJR Z, $%02x", r8); } break; 
+              case 6: { BYTE(r8); fprintf(out, "\tJR NC, $%02x", r8); } break; 
+              case 7: { BYTE(r8); fprintf(out, "\tJR C, $%02x", r8); } break; 
             }
           } break;
   
           case 1: {
             if((hi3&1) == 0) {
               WORD(d16);
-              fprintf(out, "\tLD %s, %04x", rrtostr(hi2), d16);
+              fprintf(out, "\tLD %s, $%04x", rrtostr(hi2), d16);
             }
             else {
               fprintf(out, "\tADD HL, %s", rrtostr(hi2));
@@ -185,7 +185,7 @@ static void disassemble(void)
           case 6: { 
             BYTE(n);
             fprintf(out, "\tLD ");
-            fprintf(out, "%s, %02x", rtostr(hi3), n);
+            fprintf(out, "%s, $%02x", rtostr(hi3), n);
           } break;
           
           case 7: {
@@ -230,36 +230,36 @@ static void disassemble(void)
             switch(hi2) {
               case 0: { fprintf(out, "\tRET NZ"); } break;
               case 1: { fprintf(out, "\tRET NC"); } break;
-              case 2: { BYTE(a8); fprintf(out, "\tLDH ($FF00+%02x), A", a8); } break;
-              case 3: { BYTE(a8); fprintf(out, "\tLDH ($FF00+%02x), A", a8); } break;
+              case 2: { BYTE(a8); fprintf(out, "\tLDH ($FF00+$%02x), A", a8); } break;
+              case 3: { BYTE(a8); fprintf(out, "\tLDH ($FF00+$%02x), A", a8); } break;
             }
           } break;
           case 8: {
             switch(hi2) {
               case 0: { fprintf(out, "\tRET Z"); } break;
               case 1: { fprintf(out, "\tRET C"); } break;
-              case 2: { BYTE(r8); fprintf(out, "\tADD SP, %02x", r8); } break;
-              case 3: { BYTE(r8); fprintf(out, "\tLD HL, SP+%02x", r8); } break;
+              case 2: { BYTE(r8); fprintf(out, "\tADD SP, $%02x", r8); } break;
+              case 3: { BYTE(r8); fprintf(out, "\tLD HL, SP+$%02x", r8); } break;
             }
           } break;
           case 2: {
             switch(hi2) {
-              case 0: { WORD(a16); fprintf(out, "\tJP NZ, %04x", a16); } break;
-              case 1: { WORD(a16); fprintf(out, "\tJP NC, %04x", a16); } break;
-              case 2: { BYTE(a8);  fprintf(out, "\tLDH ($FF00+%02x), A", a8); } break;
-              case 3: { BYTE(a8);  fprintf(out, "\tLDH A, ($FF00+%02x)", a8); } break;
+              case 0: { WORD(a16); fprintf(out, "\tJP NZ, $%04x", a16); } break;
+              case 1: { WORD(a16); fprintf(out, "\tJP NC, $%04x", a16); } break;
+              case 2: { BYTE(a8);  fprintf(out, "\tLDH ($FF00+$%02x), A", a8); } break;
+              case 3: { BYTE(a8);  fprintf(out, "\tLDH A, ($FF00+$%02x)", a8); } break;
             }
           } break;
           case 10: {
             switch(hi2) {
-              case 0: { WORD(a16); fprintf(out, "\tJP Z, %04x", a16); } break;
-              case 1: { WORD(a16); fprintf(out, "\tJP C, %04x", a16); } break;
-              case 2: { WORD(a16); fprintf(out, "\tLD (%04x), A", a16); } break;
-              case 3: { WORD(a16); fprintf(out, "\tLD A, (%04x)", a16); } break;
+              case 0: { WORD(a16); fprintf(out, "\tJP Z, $%04x", a16); } break;
+              case 1: { WORD(a16); fprintf(out, "\tJP C, $%04x", a16); } break;
+              case 2: { WORD(a16); fprintf(out, "\tLD ($%04x), A", a16); } break;
+              case 3: { WORD(a16); fprintf(out, "\tLD A, ($%04x)", a16); } break;
             }
           } break;
           case 3: {
-            if(hi2 == 0)      { WORD(a16); fprintf(out, "\tJP %04x", a16); }
+            if(hi2 == 0)      { WORD(a16); fprintf(out, "\tJP $%04x", a16); }
             else if(hi2 == 3) { fprintf(out, "\tDI"); }
             else              { goto misencoded; } 
           } break;
@@ -269,49 +269,49 @@ static void disassemble(void)
             else              { goto misencoded; }
           } break;
           case 4: {
-            if(hi2 == 0)      { WORD(a16); fprintf(out, "\tCALL NZ, %04x", a16); }
-            else if(hi2 == 1) { WORD(a16); fprintf(out, "\tCALL NC, %04x", a16); }
+            if(hi2 == 0)      { WORD(a16); fprintf(out, "\tCALL NZ, $%04x", a16); }
+            else if(hi2 == 1) { WORD(a16); fprintf(out, "\tCALL NC, $%04x", a16); }
             else              { goto misencoded; }
           } break;
           case 12: {
-            if(hi2 == 0)      { WORD(a16); fprintf(out, "\tCALL Z, %04x", a16); }
-            else if(hi2 == 1) { WORD(a16); fprintf(out, "\tCALL C, %04x", a16); }
+            if(hi2 == 0)      { WORD(a16); fprintf(out, "\tCALL Z, $%04x", a16); }
+            else if(hi2 == 1) { WORD(a16); fprintf(out, "\tCALL C, $%04x", a16); }
             else              { goto misencoded; }
           } break;
           case 13: {
-            if(hi2 == 0) { WORD(a16); fprintf(out, "\tCALL %04x", a16); }
+            if(hi2 == 0) { WORD(a16); fprintf(out, "\tCALL $%04x", a16); }
             else         { goto misencoded; }
           } break;
           case 6: {
             switch(hi2) {
-              case 0: { BYTE(d8); fprintf(out, "\tADD A, %02x", d8); } break;
-              case 1: { BYTE(d8); fprintf(out, "\tSUB A, %02x", d8); } break;
-              case 2: { BYTE(d8); fprintf(out, "\tAND A, %02x", d8); } break;
-              case 3: { BYTE(d8); fprintf(out, "\tOR A, %02x", d8); } break;
+              case 0: { BYTE(d8); fprintf(out, "\tADD A, $%02x", d8); } break;
+              case 1: { BYTE(d8); fprintf(out, "\tSUB A, $%02x", d8); } break;
+              case 2: { BYTE(d8); fprintf(out, "\tAND A, $%02x", d8); } break;
+              case 3: { BYTE(d8); fprintf(out, "\tOR A, $%02x", d8); } break;
             }
           } break;
           case 14: {
             switch(hi2) {
-              case 0: { BYTE(d8); fprintf(out, "\tADC A, %02x", d8); } break;
-              case 1: { BYTE(d8); fprintf(out, "\tSBC A, %02x", d8); } break;
-              case 2: { BYTE(d8); fprintf(out, "\tXOR A, %02x", d8); } break;
-              case 3: { BYTE(d8); fprintf(out, "\tCP A, %02x", d8); } break;
+              case 0: { BYTE(d8); fprintf(out, "\tADC A, $%02x", d8); } break;
+              case 1: { BYTE(d8); fprintf(out, "\tSBC A, $%02x", d8); } break;
+              case 2: { BYTE(d8); fprintf(out, "\tXOR A, $%02x", d8); } break;
+              case 3: { BYTE(d8); fprintf(out, "\tCP A, $%02x", d8); } break;
             }
           } break;
           case 7: {
             switch(hi2) {
-              case 0: { fprintf(out, "\tRST 00H"); } break;
-              case 1: { fprintf(out, "\tRST 10H"); } break;
-              case 2: { fprintf(out, "\tRST 20H"); } break;
-              case 3: { fprintf(out, "\tRST 30H"); } break;
+              case 0: { fprintf(out, "\tRST $00"); } break;
+              case 1: { fprintf(out, "\tRST $10"); } break;
+              case 2: { fprintf(out, "\tRST $20"); } break;
+              case 3: { fprintf(out, "\tRST $30"); } break;
             }
           } break;
           case 15: {
             switch(hi2) {
-              case 0: { fprintf(out, "\tRST 08H"); } break;
-              case 1: { fprintf(out, "\tRST 18H"); } break;
-              case 2: { fprintf(out, "\tRST 28H"); } break;
-              case 3: { fprintf(out, "\tRST 38H"); } break;
+              case 0: { fprintf(out, "\tRST $08"); } break;
+              case 1: { fprintf(out, "\tRST $18"); } break;
+              case 2: { fprintf(out, "\tRST $28"); } break;
+              case 3: { fprintf(out, "\tRST $38"); } break;
             }
           } break;
           case 9: {
@@ -330,9 +330,9 @@ static void disassemble(void)
     
     continue;
     misencoded: {
-      fprintf(out, "\t<BYTE> %02x\n", byte);
+      fprintf(out, "\tDB $%02x\n", byte);
       for(int i = 0; i != dp; ++i) {
-        fprintf(out, "\t<BYTE> %02x\n", decoded[i]);
+        fprintf(out, "\tDB $%02x\n", decoded[i]);
       }
     }
 
