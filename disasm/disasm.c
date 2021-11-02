@@ -3,6 +3,7 @@
 #include<string.h>
 #include<stdio.h>
 #include<stdbool.h>
+#include<assert.h>
 
 int addr = 0;
 FILE *in;
@@ -106,10 +107,8 @@ static void disassemble(void)
     fprintf(out, "%02x", byte);
     
     int opcode = byte>>6;
-    int low2 = byte&0x03;
     int low3 = byte&0x07;
     int low4 = byte&0x0f;
-    int hi4 = (byte>>2)&0x0f;
     int hi3 = (byte>>3)&0x07;
     int hi2 = (byte>>4)&0x03;
     switch(opcode) {
@@ -162,7 +161,7 @@ static void disassemble(void)
           case 6: { 
             BYTE(n);
             fprintf(out, "\tLD ");
-            fprintf(out, "%s, %02x\n", rtostr(hi3), n);
+            fprintf(out, "%s, %02x", rtostr(hi3), n);
           } break;
           
           case 7: {
@@ -334,14 +333,36 @@ static void mkarg(char **argv, int *argi, char *opt, char **value)
   if(oplen == 0) {
     ++*argi;
     param = argv[*argi];
+    ++*argi;
   }
   else if(oplen > 0) {
     param = op_value + oplen;
+    ++*argi;
   }
 
-  ++*argi;
   *value = param;
 }
+
+static int tohex(char c)
+{
+  if('0' <= c && c <= '9') return c - '0';
+  if('a' <= c && c <= 'f') return c - 'a' + 10;
+  if('A' <= c && c <= 'F') return c - 'A' + 10;
+  fprintf(stderr, "The provided value is not a hex number!\n");
+  exit(1);
+}
+
+static int parse16(char *str)
+{
+  int hex = 0;
+  while(*str!=0) {
+    hex = 16*hex + tohex(str[0]);
+    ++str;
+  }
+  return hex;
+}
+
+#define ARG(opt, ref) if(argi >= argc) break; mkarg(argv, &argi, opt, ref)
 
 int main(int argc, char **argv)
 {
@@ -353,6 +374,8 @@ int main(int argc, char **argv)
     exit(1);
   }
 
+  char *saddr = "0000";
+  char *soffs = "0000";
   char *infn = 0;
   char *outfn = 0;
   for(int argi = 1; argi < argc; ++argi) {
@@ -367,7 +390,9 @@ int main(int argc, char **argv)
       infn = str;
     }
     else {
-      mkarg(argv, &argi, "-o", &outfn);
+      ARG("-o", &outfn);
+      ARG("-a", &saddr);
+      ARG("-s", &soffs);
     }
   }
 
@@ -386,6 +411,17 @@ int main(int argc, char **argv)
   if(out == 0) {
     fprintf(stderr, "Unable to open file %s\n", outfn);
     exit(1);
+  }
+
+  addr = parse16(saddr);
+  
+  int start_offs = parse16(soffs);
+  for(int i = 0; i != start_offs; ++i) {
+    int b = fgetc(in);
+    if(b == EOF) {
+      fprintf(stderr, "The offset you provided is outside of the file\n");
+      exit(1);
+    }
   }
 
   disassemble();
