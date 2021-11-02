@@ -60,11 +60,20 @@ static char *mrrtostr(int rr)
   return "";
 }
 
-#define BYTE(n) int n = fgetc(in); if(n == EOF) exit(1); fprintf(out, "%02x", n); addr++
+#define BYTE(n) \
+  int n = fgetc(in); \
+  if(n == EOF) goto misencoded; \
+  decoded[dp++] = n; \
+  fprintf(out, "%02x", n); \
+  addr++
+
 #define WORD(n) BYTE(b0); BYTE(b1); int n = b0+(b1<<8)
 
 static void disasm_prefix_cb(void)
 {
+  int decoded[4] = {0};
+  int dp = 0;
+
   BYTE(byte);
   int low3 = byte&0x07;
   int hi3 = (byte>>3)&0x07;
@@ -92,12 +101,23 @@ static void disasm_prefix_cb(void)
       fprintf(out, "\tSET %d, %s", hi3, rtostr(low3));
     } break;
   }
+
+  return;
+  misencoded: {
+    fprintf(out, "\t<BYTE> %02x", 0xCB);
+    for(int i = 0; i != dp; ++i) {
+      fprintf(out, "\t<BYTE> %02x", decoded[i]);
+    }
+  } 
 }
 
 static void disassemble(void)
 {
+  int decoded[4] = {0};
+
   for(;;) {
     int start_addr = addr;
+    int dp = 0;
 
     int byte = fgetc(in);
     if(byte == EOF) break;
@@ -237,26 +257,26 @@ static void disassemble(void)
           case 3: {
             if(hi2 == 0)      { WORD(a16); fprintf(out, "\tJP %04x", a16); }
             else if(hi2 == 3) { fprintf(out, "\tDI"); }
-            else              { exit(1); } 
+            else              { goto misencoded; } 
           } break;
           case 11: {
             if(hi2 == 0)      { disasm_prefix_cb();  }
             else if(hi2 == 3) { fprintf(out, "\tEI"); }
-            else              { exit(1); }
+            else              { goto misencoded; }
           } break;
           case 4: {
             if(hi2 == 0)      { WORD(a16); fprintf(out, "\tCALL NZ, %04x", a16); }
             else if(hi2 == 1) { WORD(a16); fprintf(out, "\tCALL NC, %04x", a16); }
-            else              { exit(1); }
+            else              { goto misencoded; }
           } break;
           case 12: {
             if(hi2 == 0)      { WORD(a16); fprintf(out, "\tCALL Z, %04x", a16); }
             else if(hi2 == 1) { WORD(a16); fprintf(out, "\tCALL C, %04x", a16); }
-            else              { exit(1); }
+            else              { goto misencoded; }
           } break;
           case 13: {
             if(hi2 == 0) { WORD(a16); fprintf(out, "\tCALL %04x", a16); }
-            else         { exit(1); }
+            else         { goto misencoded; }
           } break;
           case 6: {
             switch(hi2) {
@@ -303,6 +323,15 @@ static void disassemble(void)
     }
   
     fprintf(out, "\n");
+    
+    continue;
+    misencoded: {
+      fprintf(out, "\t<BYTE> %02x\n", byte);
+      for(int i = 0; i != dp; ++i) {
+        fprintf(out, "\t<BYTE> %02x\n", decoded[i]);
+      }
+    }
+
   }
 }
 
