@@ -5,7 +5,9 @@
 #include<stdbool.h>
 #include<assert.h>
 
+int start_addr = 0;
 int addr = 0;
+int max_size = 0;
 FILE *in;
 FILE *out;
 
@@ -63,6 +65,7 @@ static char *mrrtostr(int rr)
 #define BYTE(n) \
   int n = fgetc(in); \
   if(n == EOF) goto misencoded; \
+  if(addr>=max_size) goto misencoded; \
   decoded[dp++] = n; \
   fprintf(out, "%02x", n); \
   addr++
@@ -116,14 +119,15 @@ static void disassemble(void)
   int decoded[4] = {0};
 
   for(;;) {
-    int start_addr = addr;
+    int instruc_addr = start_addr+addr;
     int dp = 0;
 
     int byte = fgetc(in);
     if(byte == EOF) break;
+    if(addr >= max_size) break;
     addr++;
   
-    fprintf(out, "%04x\t", start_addr);
+    fprintf(out, "%04x\t", instruc_addr);
     fprintf(out, "%02x", byte);
     
     int opcode = byte>>6;
@@ -405,6 +409,7 @@ int main(int argc, char **argv)
 
   char *saddr = "0000";
   char *soffs = "0000";
+  char *ssize = "FFFF";
   char *infn = 0;
   char *outfn = 0;
   for(int argi = 1; argi < argc; ++argi) {
@@ -422,6 +427,7 @@ int main(int argc, char **argv)
       ARG("-o", &outfn);
       ARG("-a", &saddr);
       ARG("-s", &soffs);
+      ARG("-t", &ssize);
     }
   }
 
@@ -442,8 +448,9 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  addr = parse16(saddr);
-  
+  start_addr = parse16(saddr);
+  max_size = parse16(ssize);
+
   int start_offs = parse16(soffs);
   for(int i = 0; i != start_offs; ++i) {
     int b = fgetc(in);
