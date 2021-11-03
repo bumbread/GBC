@@ -1,3 +1,4 @@
 #!/bin/bash
 
-gcc -Wall disasm.c -odasm
+gcc -Wno-format-security -Wall disasm.c -odasm
+
