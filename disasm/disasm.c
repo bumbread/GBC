@@ -224,8 +224,8 @@ static void disassemble(void)
       } break;
       case 3: {
         switch(low4) {
-          case 1: fprintf(out, "POP %s", rr2tostr(hi2)); break;
-          case 5: fprintf(out, "PUSH %s", rr2tostr(hi2));
+          case 1: fprintf(out, "\tPOP %s", rr2tostr(hi2)); break;
+          case 5: fprintf(out, "\tPUSH %s", rr2tostr(hi2)); break;
           case 0: {
             switch(hi2) {
               case 0: { fprintf(out, "\tRET NZ"); } break;
