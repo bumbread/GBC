@@ -262,9 +262,9 @@ decodeinfo main_instructions[] = {
   opcode1(0xDE, "SBC $%02x"),
   opcode0(0xDF, "RST $18"),
   
-  opcode1(0xE0, "LDH [$FFFF + $%02x], A"),
+  opcode1(0xE0, "LD [$FFFF + $%02x], A"),
   opcode0(0xE1, "POP HL"),
-  opcode0(0xE2, "LD A, [$FFFF + C]"),
+  opcode0(0xE2, "LD [$FFFF + C], A"),
   invalid(0xE3),
   invalid(0xE4),
   opcode0(0xE5, "PUSH HL"),
@@ -279,7 +279,7 @@ decodeinfo main_instructions[] = {
   opcode1(0xEE, "XOR $%02x"),
   opcode0(0xEF, "RST $28"),
   
-  opcode1(0xF0, "LDH A, [$FFFF + $%02x]"),
+  opcode1(0xF0, "LD A, [$FFFF + $%02x]"),
   opcode0(0xF1, "POP AF"),
   opcode0(0xF2, "LD A, [C]"),
   opcode0(0xF3, "DI"),
@@ -293,7 +293,7 @@ decodeinfo main_instructions[] = {
   opcode0(0xFB, "EI"),
   invalid(0xFC),
   invalid(0xFD),
-  opcode1(0xFE, "XOR $%02x"),
+  opcode1(0xFE, "CP $%02x"),
   opcode0(0xFF, "RST $38"),
 };
 
