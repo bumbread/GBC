@@ -30,6 +30,7 @@
 **/*.dylib
 
 # Executables
+**/*.gb
 **/*.bin
 **/*.exe
 **/*.out
