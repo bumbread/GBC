@@ -577,82 +577,181 @@ decodeinfo cb_instructions[] = {
 #undef opcode2
 #undef opcode1
 
+struct gbheader typedef gbheader;
+struct gbheader {
+  uint8_t jmp[4];
+  uint8_t graphic[48];
+  uint8_t title[15];
+  uint8_t kind;
+  uint8_t lic_hi;
+  uint8_t lic_lo;
+  uint8_t sgb_ind;
+  uint8_t cart_type;
+  uint8_t rom_sz;
+  uint8_t ram_sz;
+  uint8_t dest;
+  uint8_t lic_code;
+  uint8_t rom_ver;
+  uint8_t complement;
+  uint16_t checksum;
+};
+
 int start_addr = 0;
 int max_size = 0;
 int offset = 0;
 FILE *in;
 FILE *out;
 
-static void disassemble(void)
+static int disasm_next(void)
 {
-  for(;;) {
-    int instruction_addr = start_addr + offset;
+  if(offset >= max_size) {
+    return 1;
+  }
+  int instruction_addr = start_addr + offset;
 
-    int i = 0;
-    int bytes[3];
-    
+  int i = 0;
+  int bytes[3];
+  
+  bytes[i] = fgetc(in);
+  if(bytes[i] == EOF) return 1;
+  i ++;
+  
+
+  decodeinfo info;
+  if(bytes[0] == 0xCB) {
+    int pi = i;
     bytes[i] = fgetc(in);
-    if(bytes[i] == EOF) break;
+    if(bytes[i] == EOF) goto bad_encoding;
+    i ++;
+
+    info = cb_instructions[bytes[pi]];
+  }
+  else {
+    info = main_instructions[bytes[0]];
+  }
+
+  if(info.immbytes == 3) { // undecodeable
+    goto bad_encoding;
+  }
+  else if(info.immbytes == 2) {
+    int pi = i;
+    bytes[i] = fgetc(in);
+    if(bytes[i] == EOF) goto bad_encoding;
+    i ++;
+    bytes[i] = fgetc(in);
+    if(bytes[i] == EOF) goto bad_encoding;
+    i ++;
+
+    int word = bytes[pi] + (bytes[pi+1] << 8);
+    fprintf(out, "%04x\t%02x%02x%02x\t", instruction_addr, bytes[0], bytes[1], bytes[2]);
+    fprintf(out, info.fmt, word);
+    fprintf(out, "\n");
+  }
+  else if(info.immbytes == 1) {
+    int pi = i;
+    bytes[i] = fgetc(in);
+    if(bytes[i] == EOF) goto bad_encoding;
     i ++;
     
-
-    decodeinfo info;
-    if(bytes[0] == 0xCB) {
-      int pi = i;
-      bytes[i] = fgetc(in);
-      if(bytes[i] == EOF) goto bad_encoding;
-      i ++;
-
-      info = cb_instructions[bytes[pi]];
-    }
-    else {
-      info = main_instructions[bytes[0]];
-    }
-
-    if(info.immbytes == 3) { // undecodeable
-      goto bad_encoding;
-    }
-    else if(info.immbytes == 2) {
-      int pi = i;
-      bytes[i] = fgetc(in);
-      if(bytes[i] == EOF) goto bad_encoding;
-      i ++;
-      bytes[i] = fgetc(in);
-      if(bytes[i] == EOF) goto bad_encoding;
-      i ++;
-
-      int word = bytes[pi] + (bytes[pi+1] << 8);
-      fprintf(out, "%04x\t%02x%02x%02x\t", instruction_addr, bytes[0], bytes[1], bytes[2]);
-      fprintf(out, info.fmt, word);
-      fprintf(out, "\n");
-    }
-    else if(info.immbytes == 1) {
-      int pi = i;
-      bytes[i] = fgetc(in);
-      if(bytes[i] == EOF) goto bad_encoding;
-      i ++;
-      
-      int byte = bytes[pi];
-      fprintf(out, "%04x\t%02x%02x\t", instruction_addr, bytes[0], bytes[1]);
-      fprintf(out, info.fmt, byte);
-      fprintf(out, "\n");
-    }
-    else {
-      fprintf(out, "%04x\t%02x\t", instruction_addr, bytes[0]);
-      fprintf(out, info.fmt);
-      fprintf(out, "\n");
-    }
-
-    offset += i;
-
-    continue;
-    bad_encoding: {
-      for(int bi = 0; bi != i; bi++) {
-        fprintf(out, "%04x\t%02x\tDB $%02x\n", instruction_addr++, bytes[bi], bytes[bi]);
-      }
-      offset += i;
-    }
+    int byte = bytes[pi];
+    fprintf(out, "%04x\t%02x%02x\t", instruction_addr, bytes[0], bytes[1]);
+    fprintf(out, info.fmt, byte);
+    fprintf(out, "\n");
   }
+  else {
+    fprintf(out, "%04x\t%02x\t", instruction_addr, bytes[0]);
+    fprintf(out, info.fmt);
+    fprintf(out, "\n");
+  }
+
+  offset += i;
+
+  return 0;
+  bad_encoding: {
+    for(int bi = 0; bi != i; bi++) {
+      fprintf(out, "%04x\t%02x\tDB $%02x\n", instruction_addr++, bytes[bi], bytes[bi]);
+    }
+    offset += i;
+  }
+  return 0;
+}
+
+static void disasm_all(void)
+{
+  for(;;) {
+    if(disasm_next() == 1) break;
+  }
+}
+
+static char *getlicence(gbheader *header)
+{
+  if(header->lic_code == 0x79) return "Accolade";
+  if(header->lic_code == 0xA4) return "Konami";
+  if(header->lic_code == 0x33) {
+    return "...";
+  }
+  else {
+    return "<invalid>";
+  }
+}
+
+static char *getcarttype(int t)
+{
+  if(t == 0x00) return "ROM Only";
+  if(t == 0x01) return "ROM+MBC1";
+  if(t == 0x02) return "ROM+MBC1+RAM";
+  if(t == 0x03) return "ROM+MBC1+RAM+BATT";
+  if(t == 0x05) return "ROM+MBC2";
+  if(t == 0x06) return "ROM+MBC2+BATT";
+  if(t == 0x08) return "ROM+RAM";
+  if(t == 0x09) return "ROM+RAM+BATT";
+  if(t == 0x0B) return "ROM+MMM01";
+  if(t == 0x0C) return "ROM+MMM01+SRAM";
+  if(t == 0x0D) return "ROM+MMM01+SRAM+BATT";
+  if(t == 0x0F) return "ROM+MBC3+TIMER+BATT";
+  if(t == 0x10) return "ROM+MBC3+TIMER+RAM+BATT";
+  if(t == 0x11) return "ROM+MBC3";
+  if(t == 0x12) return "ROM+MBC3+RAM";
+  if(t == 0x13) return "ROM+MBC3+RAM+BATT";
+  if(t == 0x19) return "ROM+MBC5";
+  if(t == 0x1A) return "ROM+MBC5+RAM";
+  if(t == 0x1B) return "ROM+MBC5+RAM+BATT";
+  if(t == 0x1C) return "ROM+MBC5+RUMBLE";
+  if(t == 0x1D) return "ROM+MBC5+RUMBLE+SRAM";
+  if(t == 0x1E) return "ROM+MBC5+RUMBLE+SRAM+BATT";
+  if(t == 0x1F) return "Pocket Camera";
+  if(t == 0xFD) return "Bandai TAMA5";
+  if(t == 0xFE) return "Hudson HuC-3";
+  if(t == 0xFF) return "Hudson HuC-1";
+  return "<unknown>";
+}
+
+static int getromsize(int t)
+{
+  switch(t) {
+    case 0x00: return 32;
+    case 0x01: return 64;
+    case 0x02: return 128;
+    case 0x03: return 256;
+    case 0x04: return 512;
+    case 0x05: return 1024;
+    case 0x06: return 2048;
+    case 0x52: return 72*16;
+    case 0x53: return 80*16;
+    case 0x54: return 96*16;
+  }
+  return 0;
+}
+
+static int getramsize(int t)
+{
+  switch(t) {
+    case 1: return 2;
+    case 2: return 8;
+    case 3: return 32;
+    case 4: return 128;
+  }
+  return 0;
 }
 
 // Start is required to be non-empty string
@@ -673,23 +772,24 @@ static int startcmp(char *str, char *start)
   return -1;
 }
 
-static void mkarg(char **argv, int *argi, char *opt, char **value)
+static int mkarg(char **argv, int *argi, char *opt, char **value)
 {
   char *op_value = argv[*argi];
-  char *param = *value;
 
   int oplen = startcmp(op_value, opt);
   if(oplen == 0) {
     ++*argi;
-    param = argv[*argi];
+    *value = argv[*argi];
     ++*argi;
+    return true;
   }
   else if(oplen > 0) {
-    param = op_value + oplen;
+    *value = op_value + oplen;
     ++*argi;
+    return true;
   }
 
-  *value = param;
+  return false;
 }
 
 static int tohex(char c)
@@ -711,7 +811,14 @@ static int parse16(char *str)
   return hex;
 }
 
-#define ARG(opt, ref) if(argi >= argc) break; mkarg(argv, &argi, opt, ref)
+#define OPT(opt, ref) \
+  else if(strcmp(argv[argi], opt) == 0) do { \
+    *(ref) = 1; \
+    argi++; \
+  } while(0)
+
+#define ARG(opt, ref) \
+      else if(mkarg(argv, &argi, opt, ref))
 
 int main(int argc, char **argv)
 {
@@ -723,12 +830,14 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  char *saddr = "0000";
-  char *soffs = "0000";
-  char *ssize = "FFFF";
+  bool bhead = 0;
+  
+  char *saddr = 0;
+  char *soffs = 0;
+  char *ssize = 0;
   char *infn = 0;
   char *outfn = 0;
-  for(int argi = 1; argi < argc; ++argi) {
+  for(int argi = 1; argi < argc;) {
     char *str = argv[argi];
     if(str[0] != '-') {
       if(infn != 0) {
@@ -738,12 +847,19 @@ int main(int argc, char **argv)
         exit(1);
       }
       infn = str;
+      ++argi;
     }
     else {
+      if(0);
       ARG("-o", &outfn);
       ARG("-a", &saddr);
       ARG("-s", &soffs);
       ARG("-t", &ssize);
+      OPT("-h", &bhead);
+      else {
+        fprintf(stderr, "invalid option: %s\n", argv[argi]);
+        exit(1);
+      }
     }
   }
 
@@ -764,6 +880,53 @@ int main(int argc, char **argv)
     exit(1);
   }
 
+  // Parse header if needed
+  if(bhead != 0) {
+    if(fseek(in, 0x100, SEEK_SET) != 0) {
+      fprintf(stderr, "No header in the file\n");
+      exit(1);
+    }
+    gbheader header;
+    size_t result = fread(&header, sizeof header, 1, in);
+    if(result != 1) {
+      fprintf(stderr, "Unable to read the header, file too short!\n");
+      exit(1);
+    }
+
+    fprintf(out, "--------- HEADER ---------\n");
+    fprintf(out, "Nintendo scrolling graphic:");
+    for(int i = 0; i != sizeof header.graphic; ++i) {
+      if(i%8 == 0) fprintf(out, "\n");
+      fprintf(out, "%02x ", header.graphic[i]);
+    }
+    fprintf(out, "\n");
+    fprintf(out, "Title:     %.*s\n", 15, header.title);
+    fprintf(out, "Color GB:  %s\n", header.kind==0x80?"yes":"no");
+    fprintf(out, "License:   %s\n", getlicence(&header));
+    fprintf(out, "SGB funcs: %s\n", header.sgb_ind==0x03?"yes":"no");
+    fprintf(out, "Cartridge: %s\n", getcarttype(header.cart_type));
+    fprintf(out, "ROM size:  %d Kb (%d banks)\n",
+                  getromsize(header.rom_sz),
+                  getromsize(header.rom_sz)/16);
+    if(header.ram_sz != 0) fprintf(out, "RAM size:  %d Kb (%d banks)\n", 
+                  getramsize(header.ram_sz), 
+                  (getramsize(header.ram_sz)+7)/8);
+    fprintf(out, "Japanese:  %s\n", header.dest==1?"yes":"no");
+    fprintf(out, "--------------------------\n");
+    
+    fseek(in, 0, SEEK_SET);
+  }
+
+  if(soffs == 0) {
+    soffs = "0";
+  }
+  if(saddr == 0) {
+    saddr = soffs;
+  }
+  if(ssize == 0) {
+    ssize = "FFFF";
+  }
+
   start_addr = parse16(saddr);
   max_size = parse16(ssize);
 
@@ -776,7 +939,7 @@ int main(int argc, char **argv)
     }
   }
 
-  disassemble();
+  disasm_all();
   fclose(out);
   fclose(in);
   return 0;
